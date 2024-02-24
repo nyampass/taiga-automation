@@ -1,0 +1,15 @@
+tasks:
+- title: xxx MTG
+  cron: 0 9 3 5 9
+  assign: tnoborio
+- title: xxx
+  cron: 30 8 5 5
+  assign: hayashi
+- title: yyy
+  cron: 15 11 24 2
+  assign: xxx
+  sub_tasks: 
+    - title: a
+    - title: b
+- type: archive
+  cron: 17 11 24 2
