@@ -1,29 +1,28 @@
 import yaml
 import datetime as dt
-import info #ログイン用の個人のパスワード、ユーザ名を入れてあります
-import requests
 from taiga import TaigaAPI
-import json
+from dotenv import load_dotenv
+load_dotenv()
+import os
 
-api = TaigaAPI(host="https://board.nyampass.com")
+username = os.getenv("USERNAME")
+password = os.getenv("PASSWORD")
+project = os.getenv("PROJECT")
+default_swimlane = os.getenv("DEFAULT_SWIMLANE")
+host = os.getenv("HOST")
+database_path = os.getenv("DATABASE_PATH")
+
+api = TaigaAPI(host=host)
 api.auth(
-    username=info.username,
-    password=info.password,
+    username=username,
+    password=password,
 )
-token = api.token
-
-def post(to,data):
-    return requests.post(
-        url="https://board.nyampass.com/api/v1/"+to,
-        headers={'Authorization': 'Bearer {}'.format(api.token)},
-        data=data
-    )
-def patch(to,data):
-    return requests.patch(
-        url="https://board.nyampass.com/api/v1/"+to,
-        headers={'Authorization': 'Bearer {}'.format(api.token)},
-        data=data
-    )
+projects = api.projects.get_by_slug(project)
+swimlanes = {i.name : i.id for i in projects.list_swimlanes()}
+statuses = {i.name : i.id for i in projects.list_user_story_statuses()}
+users = {i.username:i.id for i in api.users.list()}
+task_id = api.task_statuses.list()[0].id
+userstories = projects.list_user_stories()
 
 def passed(target):
     now = dt.datetime.now()
@@ -31,17 +30,20 @@ def passed(target):
     return (dt.datetime(now.year,int(time[3]),int(time[2]),int(time[1]),int(time[0])) - now).days<0
     # min h day month weekday
 
-with open('tasks2.yaml') as file:
+with open(database_path) as file:
     tasks = yaml.full_load(file)["tasks"]
     for task in tasks:
         if "title" in task:
             if passed(task["cron"]):
-                res = post("userstories",{"_attrs":{"project":2,"subject":"","description":"","tags":[],"points":{},"swimlane":3,"status":7,"is_archived":False},"_name":"userstories","_dataTypes":{},"_modifiedAttrs":{"subject":task["title"]},"_isModified":True,"project":2,"subject":task["title"],"description":"Hey","tags":[],"points":{},"swimlane":3,"status":7,"is_archived":False,"is_closed":False})
+                swim = swimlanes[task["swim"]] if "swim" in task and task["swim"] in swimlanes else swimlanes[default_swimlane]
+                assign = users[task["assign"]] if "assign" in task and task["assign"] in users else None
+                new = projects.add_user_story(task["title"],description="",swimlane=swim,assigned_to=assign)
                 if "sub_tasks" in task:
-                    ID = json.loads(res._content.decode())["id"]
-                    for subtask in task["sub_tasks"]:
-                        post("tasks",{"subject":subtask["title"],"assigned_to":None,"status":6,"project":2,"user_story":ID})
+                    for sub_task in task["sub_tasks"]:
+                        new.add_task(sub_task["title"],status=task_id)
         elif "type" in task:
             if task["type"] == "archive":
                 if passed(task["cron"]):
-                    print("ok")
+                    done = list(filter(lambda e:e.status==statuses["Done"],userstories))
+                    for i in done:
+                        i.update(swimlane=swim,status=statuses["Archived"])

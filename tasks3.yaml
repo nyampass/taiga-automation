@@ -1,0 +1,23 @@
+tasks:
+- title: xxx MTG
+  cron: 0 9 3 5 9
+  assign: tnoborio
+  swim: HaLake
+- title: xxx
+  cron: 30 8 5 5
+  assign: hayashi
+  swim: Nyampass
+- title: hoge
+  cron: 15 11 24 2
+  assign: hayash
+  sub_tasks: 
+    - title: a
+    - title: c
+- title: zzz
+  cron: 15 11 8 3
+  assign: xxx
+  swim: Nyampa
+  sub_tasks: 
+    - title: All Right!
+- type: archive
+  cron: 17 11 24 2
